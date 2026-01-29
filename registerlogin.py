@@ -73,8 +73,6 @@ if 'auth_mode' not in st.session_state:
     st.session_state.auth_mode = 'login'
 
 # Database Functions
-import mysql.connector
-
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
@@ -83,7 +81,7 @@ def get_db_connection():
             password=DB_PASSWORD,
             database=DB_NAME,
             charset="utf8mb4",
-            cursorclass=mysql.connector.cursors.Cursor
+            cursor = conn.cursor(dictionary=True)
         )
         return conn
     except Exception as e:
