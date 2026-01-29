@@ -1,6 +1,5 @@
 import streamlit as st
-import mysql.connector
-from mysql.connector import Error
+import sqlite3
 import re
 import time
 from datetime import datetime
@@ -57,12 +56,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Database configuration
-DB_HOST = "localhost"
-DB_USER = "root"
-DB_PASSWORD = "Sree0925"
-DB_NAME = "Student_db"
-DB_TABLE = "Students"
-charset="utf8mb4"
+DB_FILE = "users.db"
 
 # Initialize session state
 if 'logged_in' not in st.session_state:
@@ -75,31 +69,24 @@ if 'auth_mode' not in st.session_state:
 # Database Functions
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            charset="utf8mb4",
-            cursor = conn.cursor(dictionary=True)
-        )
+        return sqlite3.connect(DB_FILE, check_same_thread=False)
     except Exception as e:
         st.error(f"❌ Database Connection Error: {e}")
         return None
 
 def create_users_table():
-    """Create users table if it doesn't exist"""
     try:
         conn = get_db_connection()
         if conn is None:
             return False
-        cursor = conn.cursor(dictionary=True)
+
+        cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -107,29 +94,36 @@ def create_users_table():
         cursor.close()
         conn.close()
         return True
-    except Error as e:
+    except Exception as e:
         st.error(f"❌ Error creating table: {e}")
         return False
 
 def register_user(username, email, password, confirm_password):
-    """Register a new user"""
-    # Validation
     if not username or not email or not password:
         st.warning("⚠️ Please fill all fields")
         return False
-    
-    if len(username) < 3:
-        st.warning("⚠️ Username must be at least 3 characters long")
-        return False
-    
-    if len(password) < 6:
-        st.warning("⚠️ Password must be at least 6 characters long")
-        return False
-    
+
     if password != confirm_password:
         st.warning("⚠️ Passwords do not match")
         return False
-    
+
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return False
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+            (username, email, password)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        st.error("❌ Username or Email already exists")
+        return False
     # Email validation
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, email):
@@ -166,47 +160,35 @@ def register_user(username, email, password, confirm_password):
         return False
 
 def login_user(username, password):
-    """Authenticate user login"""
     if not username or not password:
         st.warning("⚠️ Please enter username and password")
         return False
-    
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            return False
-        
-        cursor = conn.cursor()
-        query = "SELECT id, username FROM users WHERE username = %s AND password = %s"
-        cursor.execute(query, (username, password))
-        result = cursor.fetchone()
-        
-        cursor.close()
-        conn.close()
-        
-        if result:
-            return True
-        else:
-            st.error("❌ Invalid username or password")
-            return False
-    except Error as e:
-        st.error(f"❌ Login error: {e}")
+
+    conn = get_db_connection()
+    if conn is None:
         return False
 
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id FROM users WHERE username = ? AND password = ?",
+        (username, password)
+    )
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    return result is not None
 def get_user_count():
-    """Get total number of registered users"""
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            return 0
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users")
-        count = cursor.fetchone()[0]
-        cursor.close()
-        conn.close()
-        return count
-    except Error:
+    conn = get_db_connection()
+    if conn is None:
         return 0
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return count
 
 # Main Application
 def main():
