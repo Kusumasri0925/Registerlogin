@@ -584,7 +584,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #999; font-size: 12px;'>
-        <p>🔐 Secure Authentication System | Built with Streamlit & MySQL</p>
+        <p>🔐 Secure Authentication System | Built with Streamlit & sqlite3</p>
         <p>© 2026 All Rights Reserved</p>
     </div>
     """, unsafe_allow_html=True)
