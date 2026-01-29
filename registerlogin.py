@@ -83,7 +83,6 @@ def get_db_connection():
             charset="utf8mb4",
             cursor = conn.cursor(dictionary=True)
         )
-        return conn
     except Exception as e:
         st.error(f"❌ Database Connection Error: {e}")
         return None
@@ -94,7 +93,7 @@ def create_users_table():
         conn = get_db_connection()
         if conn is None:
             return False
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
